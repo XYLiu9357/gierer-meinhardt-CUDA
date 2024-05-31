@@ -17,24 +17,6 @@
 #endif
 
 /**
- * Variables in constant memory
- */
-
-#ifndef CONSTANTS
-#define CONSTANTS
-__device__ static int dev_N;
-__device__ static double dev_Du;
-__device__ static double dev_Dv;
-__device__ static double dev_a;
-__device__ static double dev_b;
-__device__ static double dev_c;
-__device__ static double dev_epsilon;
-// __device__ static int dev_steps;
-__device__ static double dev_dt;
-__device__ static double dev_pi_multiple;
-#endif /*CONSTANTS*/
-
-/**
  * Error handler
  */
 
@@ -99,7 +81,7 @@ int main(int argc, char *argv[])
     double dt = T / steps;
     double pi_multiple = 4. * M_PI * M_PI / L / L;
 
-    // default seed is 0
+    // default seed is -1
     unsigned int seed = -1U;
 
     if (argc == 9)
@@ -119,10 +101,10 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // due to the way shared memory is used, N cannot exceed 2048
-    if (N > 2048)
+    // due to the way shared memory is used, N cannot exceed 1024
+    if (N > 1024)
     {
-        printf("N exceeds maximum limit 2048.\n");
+        printf("N exceeds maximum limit 1024.\n");
         return 1;
     }
 
@@ -159,17 +141,8 @@ int main(int argc, char *argv[])
      * Initialize data on device
      */
 
-    // store constants constant memory
-    cudaMemcpyToSymbol(dev_N, &N, sizeof(int));
-    cudaMemcpyToSymbol(dev_Du, &Du, sizeof(double));
-    cudaMemcpyToSymbol(dev_Dv, &Dv, sizeof(double));
-    cudaMemcpyToSymbol(dev_a, &a, sizeof(double));
-    cudaMemcpyToSymbol(dev_b, &b, sizeof(double));
-    cudaMemcpyToSymbol(dev_c, &c, sizeof(double));
-    cudaMemcpyToSymbol(dev_epsilon, &epsilon, sizeof(double));
-    // cudaMemcpyToSymbol(dev_steps, &steps, sizeof(int));
-    cudaMemcpyToSymbol(dev_dt, &dt, sizeof(double));
-    cudaMemcpyToSymbol(dev_pi_multiple, &pi_multiple, sizeof(double));
+    // load constants into constant memory
+    setConstants(N, Du, Dv, a, b, c, epsilon, dt, pi_multiple);
 
     // device data arrays
     cufftDoubleReal *dev_u;
@@ -228,8 +201,13 @@ int main(int argc, char *argv[])
 
             // calculate laplacians
             // block n process row n
-            getLaplacian<<<N, N / 2 + 1, N * sizeof(cufftDoubleComplex)>>>(dev_fftBufferU);
-            getLaplacian<<<N, N / 2 + 1, N * sizeof(cufftDoubleComplex)>>>(dev_fftBufferV);
+            getLaplacian<<<N, N / 2 + 1, (N / 2 + 1) * sizeof(cufftDoubleComplex)>>>(dev_fftBufferU);
+            // cudaErrChk(cudaPeekAtLastError());
+            // cudaErrChk(cudaDeviceSynchronize());
+
+            getLaplacian<<<N, N / 2 + 1, (N / 2 + 1) * sizeof(cufftDoubleComplex)>>>(dev_fftBufferV);
+            // cudaErrChk(cudaPeekAtLastError());
+            // cudaErrChk(cudaDeviceSynchronize());
 
             // backward transform
             cufftExecZ2D(backward, dev_fftBufferU, dev_laplacianU);
@@ -238,21 +216,22 @@ int main(int argc, char *argv[])
             // time update with RK-4
             // block 2n and 2n + 1 process row n
             // requires a 6 * (N / 2) shared memory
-            rkUpdate<<<2 * N, N / 2, 6 * (N / 2) * sizeof(cufftDoubleReal)>>>(dev_rkBufferU, dev_u, dev_laplacianU, dev_rkBufferV, dev_v, dev_laplacianV, rkIter);
+            // rkUpdate<<<2 * N, N / 2, 6 * (N / 2) * sizeof(cufftDoubleReal)>>>(dev_rkBufferU, dev_u, dev_laplacianU, dev_rkBufferV, dev_v, dev_laplacianV, rkIter);
+            rkUpdate<<<N, N, 6 * N * sizeof(cufftDoubleReal)>>>(dev_rkBufferU, dev_u, dev_laplacianU, dev_rkBufferV, dev_v, dev_laplacianV, rkIter);
+            // cudaErrChk(cudaPeekAtLastError());
+            // cudaErrChk(cudaDeviceSynchronize());
         }
 
         // write intermediate results
         if (iter % (steps / 10) == 0 && iter > 0)
         {
-            // cufftDoubleComplex(*testu)[N] = (cufftDoubleComplex(*)[N])malloc(sizeof(*testu) * N);
-            // cufftDoubleComplex(*testv)[N] = (cufftDoubleComplex(*)[N])malloc(sizeof(*testv) * N);
 
             // copy memory from device to host
-            cudaMemcpy(u, dev_u, sizeof(double) * N * N, cudaMemcpyDeviceToHost);
-            cudaMemcpy(v, dev_v, sizeof(double) * N * N, cudaMemcpyDeviceToHost);
+            cudaMemcpy(u, dev_u, sizeof(cufftDoubleReal) * N * N, cudaMemcpyDeviceToHost);
+            cudaMemcpy(v, dev_v, sizeof(cufftDoubleReal) * N * N, cudaMemcpyDeviceToHost);
 
-            fwrite(u, sizeof(double), N * N, fileU);
-            fwrite(v, sizeof(double), N * N, fileV);
+            fwrite(u, sizeof(cufftDoubleReal), N * N, fileU);
+            fwrite(v, sizeof(cufftDoubleReal), N * N, fileV);
             printf("t = %.2f: data stored\n", iter * dt);
         }
     }

@@ -9,6 +9,11 @@
 
 #include <cufft.h>
 
+/**setConstants(int N, double Du, double Dv, double a, double b, double c, double epsilon, double dev_dt, double dev_pi_multiple)
+ * Sets constants stored in constant memory
+ */
+void setConstants(int N, double Du, double Dv, double a, double b, double c, double epsilon, double dev_dt, double dev_pi_multiple);
+
 /**laplacian(cufftDoubleComplex *dev_fftBuffer)
  * Compute the spectral coefficients for finding the laplacian.
  * Assumes memory is allocated on the device in advance.

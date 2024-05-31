@@ -2,7 +2,7 @@ build:
 	nvcc -o gierer main.cu solver.cu -g -G -lm -lcufft
 
 run:  
-	./gierer 256 1 100 0.5 1 6 0.003 100000 12345
+	./gierer 128 1 100 0.5 1 6 0.003 100000 12345
 
 submit: 
 	sbatch job.sh

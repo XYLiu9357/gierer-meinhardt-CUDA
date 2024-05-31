@@ -9,19 +9,40 @@
 #include <cuda_runtime.h>
 #include "solver.h"
 
+/**
+ * Variables in constant memory
+ */
+
 #ifndef CONSTANTS
 #define CONSTANTS
-__device__ static int dev_N;
-__device__ static double dev_Du;
-__device__ static double dev_Dv;
-__device__ static double dev_a;
-__device__ static double dev_b;
-__device__ static double dev_c;
-__device__ static double dev_epsilon;
-// __device__ static int dev_steps;
-__device__ static double dev_dt;
-__device__ static double dev_pi_multiple;
+__constant__ int dev_N;
+__constant__ double dev_Du;
+__constant__ double dev_Dv;
+__constant__ double dev_a;
+__constant__ double dev_b;
+__constant__ double dev_c;
+__constant__ double dev_epsilon;
+__constant__ double dev_dt;
+__constant__ double dev_pi_multiple;
 #endif /*CONSTANTS*/
+
+/**setConstants(int N, double Du, double Dv, double a, double b, double c, double epsilon, double dev_dt, double dev_pi_multiple)
+ * Sets constants stored in constant memory.
+ * This is not a kernel function!
+ */
+void setConstants(int N, double Du, double Dv, double a, double b, double c, double epsilon, double dt, double pi_multiple)
+{
+    cudaMemcpyToSymbol(dev_N, &N, sizeof(int));
+    cudaMemcpyToSymbol(dev_Du, &Du, sizeof(double));
+    cudaMemcpyToSymbol(dev_Dv, &Dv, sizeof(double));
+    cudaMemcpyToSymbol(dev_a, &a, sizeof(double));
+    cudaMemcpyToSymbol(dev_b, &b, sizeof(double));
+    cudaMemcpyToSymbol(dev_c, &c, sizeof(double));
+    cudaMemcpyToSymbol(dev_epsilon, &epsilon, sizeof(double));
+    // cudaMemcpyToSymbol(dev_steps, &steps, sizeof(int));
+    cudaMemcpyToSymbol(dev_dt, &dt, sizeof(double));
+    cudaMemcpyToSymbol(dev_pi_multiple, &pi_multiple, sizeof(double));
+}
 
 /**laplacian(cufftDoubleComplex *dev_fftBuffer)
  * Compute the spectral coefficients for finding the laplacian.
@@ -31,6 +52,7 @@ __global__ void getLaplacian(cufftDoubleComplex *dev_fftBuffer)
 {
     // guard to prevent unspecified core calls
     if (blockIdx.x >= dev_N)
+        // dev_N is just 0???
         return;
 
     // dynamically allocated buffer array
@@ -45,7 +67,7 @@ __global__ void getLaplacian(cufftDoubleComplex *dev_fftBuffer)
 
     // compute spectral coefficients and rescale
     // real parts and imaginary parts are processed separately
-    if (blockIdx.x < dev_N / 2 + 1)
+    if (blockIdx.x <= dev_N / 2)
     {
         dev_localLapBuffer[localIdx].x = -dev_localLapBuffer[localIdx].x * (blockIdx.x * blockIdx.x + threadIdx.x * threadIdx.x) / dev_N / dev_N;
         dev_localLapBuffer[localIdx].y = -dev_localLapBuffer[localIdx].y * (blockIdx.x * blockIdx.x + threadIdx.x * threadIdx.x) / dev_N / dev_N;

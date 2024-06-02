@@ -52,7 +52,6 @@ __global__ void getLaplacian(cufftDoubleComplex *dev_fftBuffer)
 {
     // guard to prevent unspecified core calls
     if (blockIdx.x >= dev_N)
-        // dev_N is just 0???
         return;
 
     // dynamically allocated buffer array

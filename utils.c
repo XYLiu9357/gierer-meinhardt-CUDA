@@ -1,5 +1,6 @@
 /**utils.c
  *
+ * DEPRECATED
  * A collection of tools for matrix and vector manipulation
  * as well as computational tasks. All matrix are assumed
  * in row major order

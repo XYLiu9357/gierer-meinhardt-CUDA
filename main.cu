@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
     // default seed is -1
     unsigned int seed = -1U;
 
-    if (argc == 9)
+    if (argc == 10)
         seed = atoi(argv[++argi]);
 
     // print parameters
@@ -202,24 +202,21 @@ int main(int argc, char *argv[])
             // calculate laplacians
             // block n process row n
             getLaplacian<<<N, N / 2 + 1, (N / 2 + 1) * sizeof(cufftDoubleComplex)>>>(dev_fftBufferU);
-            // cudaErrChk(cudaPeekAtLastError());
-            // cudaErrChk(cudaDeviceSynchronize());
+            cudaErrChk(cudaPeekAtLastError());
+            cudaErrChk(cudaDeviceSynchronize());
 
             getLaplacian<<<N, N / 2 + 1, (N / 2 + 1) * sizeof(cufftDoubleComplex)>>>(dev_fftBufferV);
-            // cudaErrChk(cudaPeekAtLastError());
-            // cudaErrChk(cudaDeviceSynchronize());
+            cudaErrChk(cudaPeekAtLastError());
+            cudaErrChk(cudaDeviceSynchronize());
 
             // backward transform
             cufftExecZ2D(backward, dev_fftBufferU, dev_laplacianU);
             cufftExecZ2D(backward, dev_fftBufferV, dev_laplacianV);
 
             // time update with RK-4
-            // block 2n and 2n + 1 process row n
-            // requires a 6 * (N / 2) shared memory
-            // rkUpdate<<<2 * N, N / 2, 6 * (N / 2) * sizeof(cufftDoubleReal)>>>(dev_rkBufferU, dev_u, dev_laplacianU, dev_rkBufferV, dev_v, dev_laplacianV, rkIter);
             rkUpdate<<<N, N, 6 * N * sizeof(cufftDoubleReal)>>>(dev_rkBufferU, dev_u, dev_laplacianU, dev_rkBufferV, dev_v, dev_laplacianV, rkIter);
-            // cudaErrChk(cudaPeekAtLastError());
-            // cudaErrChk(cudaDeviceSynchronize());
+            cudaErrChk(cudaPeekAtLastError());
+            cudaErrChk(cudaDeviceSynchronize());
         }
 
         // write intermediate results

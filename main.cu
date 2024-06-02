@@ -1,8 +1,7 @@
 /**main.cu
  *
- * Solve the Gierer-Meinhardt model with serial implementation.
- * This serves a reference for creating and debugging a parallel
- * version of the same program implemented with CUDA.
+ * Solver for the Gierer-Meinhardt model parallelized
+ * with CUDA.
  */
 
 #include <stdlib.h>
